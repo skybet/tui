@@ -1,28 +1,52 @@
 package tui
 
+/*
+For posterity, here's the diff and a brief explainer of why this file is vendored:
+
+diff tui/tui.go ~/go/src/stash.skybet.net/ps/pscli/vendor/github.com/johnnylee/tui/tui.go
+6c6
+< 	"github.com/GeertJohan/go.linenoise"
+---
+> 	"github.com/chzyer/readline" // VENDOR CHANGE
+40d39
+< 	linenoise.Clear()
+58c57
+< 	s, err := linenoise.Line(prompt)
+---
+> 	s, err := readline.Line(prompt) // VENDOR CHANGE
+65c64
+< 		linenoise.AddHistory(s)
+---
+> 		readline.AddHistory(s) // VENDOR CHANGE
+
+The linenoise library is not compatible with windows, which needlessly prevents us from targeting that platform.
+
+The replacement library works happily as a drop in replacement.
+*/
+
 import (
-	"os"
 	"fmt"
-	"github.com/GeertJohan/go.linenoise"
+	"github.com/chzyer/readline" // VENDOR CHANGE
+	"os"
 	"strings"
 )
 
 func printBoxed(text string) {
 	l := len(text)
 
-	// Top of box. 
+	// Top of box.
 	fmt.Printf("╭")
-	for i := 0; i < l + 2; i++ {
+	for i := 0; i < l+2; i++ {
 		fmt.Printf("─")
 	}
 	fmt.Printf("╮\n")
-	
-	// Text. 
+
+	// Text.
 	fmt.Printf("│ %v │\n", text)
-	
-	// Bottom of box. 
+
+	// Bottom of box.
 	fmt.Printf("╰")
-	for i := 0; i < l + 2; i++ {
+	for i := 0; i < l+2; i++ {
 		fmt.Printf("─")
 	}
 	fmt.Printf("╯\n")
@@ -35,9 +59,8 @@ func paddedString(text string, length int) string {
 	return text
 }
 
-// Clear clears the screen. 
+// Clear clears the screen.
 func Clear() {
-	linenoise.Clear()
 }
 
 // Line prints a line across the screen ending in a newline.
@@ -49,27 +72,27 @@ func Line() {
 	fmt.Printf("┅\n")
 }
 
-// String prompts a user for a string and returns the result. 
-// The prompt will have a colon appended to it. 
+// String prompts a user for a string and returns the result.
+// The prompt will have a colon appended to it.
 // The resulting string is stripped of any whitespace.
 func String(prompt string) string {
 	prompt = fmt.Sprintf("%v: ", prompt)
 
-	s, err := linenoise.Line(prompt)
+	s, err := readline.Line(prompt) // VENDOR CHANGE
 	if err != nil {
 		os.Exit(0)
 	}
 	s = strings.TrimSpace(s)
 
 	if len(s) > 0 {
-		linenoise.AddHistory(s)
+		readline.AddHistory(s) // VENDOR CHANGE
 	}
 
 	return s
 }
 
-// StringNotEmpty prompts the user for a non-empty string. 
-// It keeps asking until a string is returned. 
+// StringNotEmpty prompts the user for a non-empty string.
+// It keeps asking until a string is returned.
 func StringNotEmpty(prompt string) string {
 	for {
 		s := String(prompt)
@@ -79,13 +102,13 @@ func StringNotEmpty(prompt string) string {
 	}
 }
 
-// Int prompts a user for an integer. 
+// Int prompts a user for an integer.
 func Int(prompt string) int64 {
 	for {
 		s := String(prompt)
 
 		value := int64(0)
-		
+
 		n, err := fmt.Sscanf(s, "%d", &value)
 		if n != 1 || err != nil {
 			continue
@@ -94,13 +117,13 @@ func Int(prompt string) int64 {
 	}
 }
 
-// Float prompts the user for a floating point value. 
+// Float prompts the user for a floating point value.
 func Float(prompt string) float64 {
 	for {
 		s := String(prompt)
 
 		value := float64(0)
-		
+
 		n, err := fmt.Sscanf(s, "%g", &value)
 		if n != 1 || err != nil {
 			continue
@@ -110,53 +133,52 @@ func Float(prompt string) float64 {
 }
 
 // Menu displays a menu allowing a user to choose a single item.
-// Lines in text will be displayed before the menu items. 
-// Menu items are just key-value string pairs. 
+// Lines in text will be displayed before the menu items.
+// Menu items are just key-value string pairs.
 func Menu(title string, text []string, items ...string) string {
-	// Create map of known keys, and find the maximum key length. 
+	// Create map of known keys, and find the maximum key length.
 	keyMap := make(map[string]bool)
 	keyLen := 0
-	
-	for i := 0; i < len(items); i+=2 {
+
+	for i := 0; i < len(items); i += 2 {
 		key := items[i]
 		if len(key) > keyLen {
 			keyLen = len(key)
 		}
 		keyMap[key] = true
 	}
-	
+
 	for {
-		// Print title. 
+		// Print title.
 		printBoxed(title)
 		fmt.Printf("┆\n")
-		
-		// Print any extra text. 
+
+		// Print any extra text.
 		if len(text) > 0 {
 			for _, t := range text {
 				fmt.Printf("│ %v\n", t)
 			}
 			fmt.Printf("│\n")
 		}
-		
-		// Print items. 
-		for i := 0; i < len(items); i+=2 {
+
+		// Print items.
+		for i := 0; i < len(items); i += 2 {
 			key := paddedString(items[i], keyLen)
 			txt := items[i+1]
-			
+
 			fmt.Printf("│ %v %v\n", key, txt)
 		}
-		
+
 		fmt.Printf("│\n")
 		fmt.Printf("╰─┄\n")
 
-		// Prompt user. 
+		// Prompt user.
 		s := String("Selection")
 
 		if _, ok := keyMap[s]; ok {
 			return s
-		} 
+		}
 
 		Clear()
 	}
 }
-
